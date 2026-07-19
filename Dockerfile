@@ -16,6 +16,15 @@ RUN git clone https://github.com/yisol/IDM-VTON.git /opt/IDM-VTON && \
     rm -rf /opt/IDM-VTON/.git
 
 FROM official-source AS python-dependencies
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    build-essential \
+    gcc \
+    g++ \
+    ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+    RUN which git && git --version && which python && python --version
 WORKDIR /worker
 COPY requirements.txt .
 RUN python -m pip install --upgrade pip==23.3.1 setuptools==69.0.3 wheel==0.42.0 && \
