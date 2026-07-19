@@ -23,6 +23,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     ninja-build \
+    pkg-config \
+    ffmpeg \
+    libavformat-dev \
+    libavcodec-dev \
+    libavdevice-dev \
+    libavutil-dev \
+    libavfilter-dev \
+    libswscale-dev \
+    libswresample-dev \
     && rm -rf /var/lib/apt/lists/*
     RUN which git && git --version && which python && python --version
 WORKDIR /worker
