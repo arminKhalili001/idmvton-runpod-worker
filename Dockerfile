@@ -42,6 +42,49 @@ RUN python -m pip install --upgrade pip==23.3.1 setuptools==69.0.3 wheel==0.42.0
     python -m pip install -r requirements.txt && \
     python -m pip install 'git+https://github.com/facebookresearch/detectron2.git@v0.6'
 RUN python -c "import torch,torchvision,diffusers,transformers,runpod; print('torch',torch.__version__); print('torchvision',torchvision.__version__); print('diffusers',diffusers.__version__); print('transformers',transformers.__version__); print('runpod',runpod.__version__)"
+RUN python - <<'PY'
+import hashlib
+import shutil
+from pathlib import Path
+
+import onnxruntime
+from huggingface_hub import hf_hub_download
+
+revision = "906d38c8a74e7c1cd0bf714a363fe2e939fa28b8"
+filenames = (
+    "ckpt/densepose/model_final_162be9.pkl",
+    "ckpt/humanparsing/parsing_atr.onnx",
+    "ckpt/humanparsing/parsing_lip.onnx",
+    "ckpt/openpose/ckpts/body_pose_model.pth",
+)
+for filename in filenames:
+    downloaded = hf_hub_download(
+        "yisol/IDM-VTON", filename, repo_type="space", revision=revision
+    )
+    target = Path("/opt/IDM-VTON") / filename
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(downloaded, target)
+    size = target.stat().st_size
+    with target.open("rb") as file:
+        prefix = file.read(64)
+        digest = hashlib.sha256()
+        digest.update(prefix)
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    if prefix.startswith(b"version https://git-lfs.github.com/spec/v1"):
+        raise RuntimeError(f"Git LFS pointer found instead of binary: {target}")
+    if size < 1_000_000:
+        raise RuntimeError(f"Preprocessor file is unexpectedly small: {target} ({size} bytes)")
+    print(f"preprocessor={target} bytes={size} sha256={digest.hexdigest()}", flush=True)
+
+for filename in (
+    "ckpt/humanparsing/parsing_atr.onnx",
+    "ckpt/humanparsing/parsing_lip.onnx",
+):
+    path = str(Path("/opt/IDM-VTON") / filename)
+    onnxruntime.InferenceSession(path, providers=["CPUExecutionProvider"])
+    print(f"validated ONNX model: {path}", flush=True)
+PY
 
 FROM python-dependencies AS worker
 WORKDIR /worker
